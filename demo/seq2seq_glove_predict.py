@@ -16,7 +16,7 @@ def main():
     X = df['text']
     Y = df.title
 
-    config = np.load(Seq2SeqGloVeSummarizer.get_config_file_path(model_dir_path=model_dir_path)).item()
+    config = np.load(Seq2SeqGloVeSummarizer.get_config_file_path(model_dir_path=model_dir_path), allow_pickle=True).item()
 
     summarizer = Seq2SeqGloVeSummarizer(config)
     summarizer.load_glove(very_large_data_dir_path)

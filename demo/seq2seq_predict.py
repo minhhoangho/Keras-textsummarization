@@ -15,7 +15,7 @@ def main():
     X = df['text']
     Y = df.title
 
-    config = np.load(Seq2SeqSummarizer.get_config_file_path(model_dir_path=model_dir_path)).item()
+    config = np.load(Seq2SeqSummarizer.get_config_file_path(model_dir_path=model_dir_path), allow_pickle=True).item()
 
     summarizer = Seq2SeqSummarizer(config)
     summarizer.load_weights(weight_file_path=Seq2SeqSummarizer.get_weight_file_path(model_dir_path=model_dir_path))
@@ -28,6 +28,7 @@ def main():
         # print('Article: ', x)
         print('Generated Headline: ', headline)
         print('Original Headline: ', actual_headline)
+        print("----------------------------------")
 
 
 if __name__ == '__main__':

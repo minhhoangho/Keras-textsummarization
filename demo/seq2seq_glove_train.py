@@ -11,7 +11,7 @@ LOAD_EXISTING_WEIGHTS = False
 
 
 def main():
-    np.random.seed(42)
+    # np.random.seed(42)
     data_dir_path = './data'
     very_large_data_dir_path = './very_large_data'
     report_dir_path = './reports'
@@ -21,8 +21,8 @@ def main():
     df = pd.read_csv(data_dir_path + "/fake_or_real_news.csv")
 
     print('extract configuration from input texts ...')
-    Y = df.title
-    X = df['text']
+    Y = df.title[:100]
+    X = df['text'][:100]
     config = fit_text(X, Y)
 
     print('configuration extracted from input texts ...')
@@ -40,7 +40,7 @@ def main():
 
     print('start fitting ...')
     history = summarizer.fit(Xtrain, Ytrain, Xtest, Ytest, epochs=20, batch_size=16)
-
+    print("History >> ", history)
     history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizer.model_name + '-history.png'
     if LOAD_EXISTING_WEIGHTS:
         history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizer.model_name + '-history-v' + str(summarizer.version) + '.png'
