@@ -31,17 +31,21 @@ def main():
     summarizer.load_glove(very_large_data_dir_path)
 
     if LOAD_EXISTING_WEIGHTS:
-        summarizer.load_weights(weight_file_path=Seq2SeqGloVeSummarizerV3.get_weight_file_path(model_dir_path=model_dir_path))
+        summarizer.load_weights(
+            weight_file_path=Seq2SeqGloVeSummarizerV3.get_weight_file_path(model_dir_path=model_dir_path))
 
     Xtrain, Xtest, Ytrain, Ytest = train_test_split(X, Y, test_size=0.2, random_state=42)
 
-    print('demo size: ', len(Xtrain))
-    print('testing size: ', len(Xtest))
+    print('Xtrain size: ', np.shape(Xtrain))
+    print('Ytrain size: ', np.shape(Ytrain))
+    print('Xtest size: ', np.shape(Xtest))
+    print('Ytest size: ', np.shape(Ytest))
     print('start fitting ...')
-    history = summarizer.fit(Xtrain, Ytrain, Xtest, Ytest, epochs=50, batch_size=30)
+    history = summarizer.fit(Xtrain, Ytrain, Xtest, Ytest, epochs=50, batch_size=50)
     history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizerV3.model_name + '-history.png'
     if LOAD_EXISTING_WEIGHTS:
-        history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizerV3.model_name + '-history-v' + str(summarizer.version) + '.png'
+        history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizerV3.model_name + '-history-v' + str(
+            summarizer.version) + '.png'
     plot_and_save_history(history, summarizer.model_name, history_plot_file_path, metrics={'loss', 'accuracy'})
 
 

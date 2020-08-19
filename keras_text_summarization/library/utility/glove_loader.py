@@ -4,6 +4,7 @@ import sys
 import zipfile
 import numpy as np
 
+# GLOVE_EMBEDDING_SIZE = 100
 GLOVE_EMBEDDING_SIZE = 100
 
 

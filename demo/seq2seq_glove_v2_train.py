@@ -39,7 +39,7 @@ def main():
     print('testing size: ', len(Xtest))
 
     print('start fitting ...')
-    history = summarizer.fit(Xtrain, Ytrain, Xtest, Ytest, epochs=50, batch_size=30)
+    history = summarizer.fit(Xtrain, Ytrain, Xtest, Ytest, epochs=100, batch_size=128)
     history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizerV2.model_name + '-history.png'
     if LOAD_EXISTING_WEIGHTS:
         history_plot_file_path = report_dir_path + '/' + Seq2SeqGloVeSummarizerV2.model_name + '-history-v' + str(summarizer.version) + '.png'

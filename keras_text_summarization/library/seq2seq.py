@@ -1,8 +1,12 @@
 from __future__ import print_function
 
 from keras.models import Model
-from keras.layers import Embedding, Dense, Input, Flatten, Multiply, Permute, Activation, TimeDistributed, Add, Layer
+from keras.layers import Embedding, Dense, Input, Dropout, \
+    Flatten, Multiply, Permute, Activation, TimeDistributed, Add, \
+    Bidirectional, Concatenate, Attention
+import tensorflow as tf
 from keras.optimizers import RMSprop
+from keras_text_summarization.library.attention_layer import AttentionLayer
 from keras.layers.recurrent import LSTM
 from keras.preprocessing.sequence import pad_sequences
 from keras.callbacks import ModelCheckpoint
@@ -615,31 +619,30 @@ class Seq2SeqGloVeSummarizerV3(object):
 
         self.config = config
 
-        """__encoder___"""
-        encoder_inputs = Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='encoder_inputs')
-
-        encoder_lstm = LSTM(units=HIDDEN_UNITS, return_state=True, name='encoder_lstm', dropout=0.2)
-        encoder_lstm_rev = LSTM(units=HIDDEN_UNITS, return_state=True, return_sequences=True, dropout=0.05,
-                                go_backwards=True)
+        # """__encoder___"""
+        # encoder_inputs = Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='encoder_inputs')
+        # encoder_lstm = LSTM(units=HIDDEN_UNITS, return_state=True, name='encoder_lstm', dropout=0.2)
+        # encoder_lstm_rev = LSTM(units=HIDDEN_UNITS, return_state=True, return_sequences=True, dropout=0.05,
+        #                         go_backwards=True)
         # encoder_embedding = Embedding(input_dim=self.num_input_tokens, output_dim=HIDDEN_UNITS,
         #                               input_length=self.max_input_seq_length, name='encoder_embedding')
 
-        encoder_outputs, encoder_state_h, encoder_state_c = encoder_lstm(encoder_inputs)
-        encoder_outputs_rev, encoder_state_h_rev, encoder_state_c_rev = encoder_lstm_rev(encoder_inputs)
+        # encoder_outputs, encoder_state_h, encoder_state_c = encoder_lstm(encoder_inputs)
+        # encoder_outputs_rev, encoder_state_h_rev, encoder_state_c_rev = encoder_lstm_rev(encoder_inputs)
 
-        encoder_state_h_final = Add()(([encoder_state_h, encoder_state_h_rev]))
-        encoder_state_c_final = Add()([encoder_state_c, encoder_state_c_rev])
-        encoder_outputs_final = Add()([encoder_outputs, encoder_outputs_rev])
+        # encoder_state_h_final = Add()(([encoder_state_h, encoder_state_h_rev]))
+        # encoder_state_c_final = Add()([encoder_state_c, encoder_state_c_rev])
+        # encoder_outputs_final = Add()([encoder_outputs, encoder_outputs_rev])
 
-        encoder_states = [encoder_state_h_final, encoder_state_c_final]
+        # encoder_states = [encoder_state_h_final, encoder_state_c_final]
 
-        """____decoder___"""
-        decoder_inputs = Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='decoder_inputs')
-        decoder_lstm = LSTM(units=HIDDEN_UNITS, return_state=True, return_sequences=True, name='decoder_lstm',
-                            dropout=0.2)
-
-        decoder_outputs, decoder_state_h, decoder_state_c = decoder_lstm(decoder_inputs,
-                                                                         initial_state=encoder_states)
+        # """____decoder___"""
+        # decoder_inputs = Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='decoder_inputs')
+        # decoder_lstm = LSTM(units=HIDDEN_UNITS, return_state=True, return_sequences=True, name='decoder_lstm',
+        #                     dropout=0.2)
+        #
+        # decoder_outputs, decoder_state_h, decoder_state_c = decoder_lstm(decoder_inputs,
+        #                                                                  initial_state=encoder_states)
         # # Pull out XGBoost, (Attention)
         # attention = TimeDistributed(Dense(1, activation='tanh'))(encoder_outputs_final)
         # attention = Flatten()(attention)
@@ -647,30 +650,96 @@ class Seq2SeqGloVeSummarizerV3(object):
         # attention = Activation('softmax')(attention)
         # attention = Permute([1, 2])(attention)
         # print(f'attention layer {attention}')
-
-        decoder_dense = Dense(units=self.num_target_tokens, activation='softmax', name='decoder_dense')
-        # decoder_dense = Dense(units=self.num_target_tokens, activation='linear', name='decoder_dense')
-        decoder_outputs = decoder_dense(decoder_outputs)
+        #
+        # decoder_dense = Dense(units=self.num_target_tokens, activation='softmax', name='decoder_dense')
+        # # decoder_dense = Dense(units=self.num_target_tokens, activation='linear', name='decoder_dense')
+        # decoder_outputs = decoder_dense(attention)
+        # # decoder_outputs = decoder_dense(decoder_outputs)
+        # model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+        # rmsprop = RMSprop(lr=0.005, clipnorm=2.0)
+        # # model.compile(loss='mse', optimizer=rmsprop, metrics=['accuracy'])
+        # model.compile(loss='categorical_crossentropy', optimizer=rmsprop, metrics=['accuracy'])
+        # self.model = model
+        # print(model.summary())
+        #
+        # """_________________inference mode__________________"""
+        #
+        # self.encoder_model = Model(encoder_inputs, encoder_states)
+        #
+        # decoder_state_input_h = Input(shape=(HIDDEN_UNITS,))
+        # decoder_state_input_c = Input(shape=(HIDDEN_UNITS,))
+        #
+        # decoder_state_inputs = [decoder_state_input_h, decoder_state_input_c]
+        # decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_state_inputs)
+        # decoder_states = [state_h, state_c]
         # decoder_outputs = decoder_dense(decoder_outputs)
-        model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
-        rmsprop = RMSprop(lr=0.005, clipnorm=2.0)
-        # model.compile(loss='mse', optimizer=rmsprop, metrics=['accuracy'])
-        model.compile(loss='categorical_crossentropy', optimizer=rmsprop, metrics=['accuracy'])
+        # self.decoder_model = Model([decoder_inputs] + decoder_state_inputs, [decoder_outputs] + decoder_states)
+
+        """__encoder___"""
+        # GRU 1
+        encoder_inputs = tf.keras.layers.Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='encoder_inputs')
+        encoder_gru_01 = tf.keras.layers.Bidirectional(
+            tf.keras.layers.GRU(units=HIDDEN_UNITS, return_sequences=True, return_state=True))
+        encoder_output_01, encoder_forward_state_01, encoder_backward_state_01 = encoder_gru_01(encoder_inputs)
+        encoder_output_dropout_01 = tf.keras.layers.Dropout(0.3)(encoder_output_01)
+        # GRU 2
+        encoder_gru_02 = tf.keras.layers.Bidirectional(
+            tf.keras.layers.GRU(units=HIDDEN_UNITS, return_sequences=True, return_state=True))
+        encoder_output, encoder_forward_state, encoder_backward_state = encoder_gru_02(encoder_output_dropout_01)
+        encoder_state = tf.keras.layers.Concatenate()([encoder_forward_state, encoder_backward_state])
+
+        """__decoder__"""
+        decoder_inputs = tf.keras.layers.Input(shape=(None, GLOVE_EMBEDDING_SIZE), name='decoder_inputs')
+        # GRU using encoder_states as initial state
+        decoder_gru = tf.keras.layers.GRU(HIDDEN_UNITS * 2, return_sequences=True, return_state=True)
+        decoder_output, decoder_state = decoder_gru(decoder_inputs, initial_state=[encoder_state])
+
+        # Attention Layer
+        attention_layer = AttentionLayer()
+        attention_out, attention_states = attention_layer([encoder_output, decoder_output])
+
+        # Concat attention output and decoder GRU output
+        decoder_concatenate = tf.keras.layers.Concatenate(axis=-1)([decoder_output, attention_out])
+
+        # Dense layer
+        decoder_dense = tf.keras.layers.TimeDistributed(
+            Dense(self.num_target_tokens, activation='softmax'))  # hierarchical
+        decoder_dense_output = decoder_dense(decoder_concatenate)
+        # Define the model
+        model = tf.keras.Model([encoder_inputs, decoder_inputs], decoder_dense_output)
+        model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
         self.model = model
         print(model.summary())
 
         """_________________inference mode__________________"""
+        # Encoder Inference Model
+        self.encoder_model = tf.keras.Model(encoder_inputs, [encoder_output, encoder_state])
 
-        self.encoder_model_inf = Model(encoder_inputs, encoder_states)
+        # Decoder Inference
+        # Below tensors will hold the states of the previous time step
+        decoder_state = tf.keras.layers.Input(shape=(HIDDEN_UNITS * 2,))
+        decoder_intermittent_state_input = tf.keras.layers.Input(shape=(self.max_input_seq_length, HIDDEN_UNITS * 2))
 
-        decoder_state_input_h = Input(shape=(HIDDEN_UNITS,))
-        decoder_state_input_c = Input(shape=(HIDDEN_UNITS,))
+        # Get Embeddings of Decoder Sequence
+        # decoder_embedding_inference = embedding_layer_headline(decoder_input)
 
-        decoder_state_inputs = [decoder_state_input_h, decoder_state_input_c]
-        decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_state_inputs)
-        decoder_states = [state_h, state_c]
-        decoder_outputs = decoder_dense(decoder_outputs)
-        self.decoder_model = Model([decoder_inputs] + decoder_state_inputs, [decoder_outputs] + decoder_states)
+        # Predict Next Word in Sequence, Set Initial State to State from Previous Time Step
+        decoder_output_inference, decoder_state_inference = decoder_gru(decoder_inputs,
+                                                                        initial_state=[decoder_state])
+
+        # Attention Inference
+        attention_layer = AttentionLayer()
+        attention_out_inference, attention_state_inference = attention_layer(
+            [decoder_intermittent_state_input, decoder_output_inference])
+        decoder_inference_concat = tf.keras.layers.Concatenate(axis=-1)(
+            [decoder_output_inference, attention_out_inference])
+
+        # Dense Softmax Layer to Generate Prob. Dist. Over Target Vocabulary
+        decoder_output_inference = decoder_dense(decoder_inference_concat)
+
+        # Final Decoder Model
+        self.decoder_model = tf.keras.Model([decoder_inputs, decoder_intermittent_state_input, decoder_state],
+                                            [decoder_output_inference, decoder_state_inference])
 
     def load_weights(self, weight_file_path):
         if os.path.exists(weight_file_path):
@@ -746,8 +815,8 @@ class Seq2SeqGloVeSummarizerV3(object):
                 yield [encoder_input_data_batch, decoder_input_data_batch], decoder_target_data_batch
 
     def encode_data(self, X, Y):
-        print(f'X encode shape: {X.shape}')
-        print(f'Y encode shape: {Y.shape}')
+        # print(f'X encode shape: {X.shape}')
+        # print(f'Y encode shape: {Y.shape}')
         if X.shape[0] != Y.shape[0]:
             print('X, Y shape for encode is not equal, exit ...')
             exit(0)
@@ -767,10 +836,10 @@ class Seq2SeqGloVeSummarizerV3(object):
                 if w2idx != 0:
                     if idx > 0:
                         decoder_target[lineIdx, idx - 1, w2idx] = 1
-        print(f'encoder_input shape: {np.shape(encoder_input)}')
-        print(f'decoder_input shape: {np.shape(decoder_input)}')
-        print(f'decoder_target shape: {np.shape(decoder_target)}')
-        print("-------------------------")
+        # print(f'encoder_input shape: {np.shape(encoder_input)}')
+        # print(f'decoder_input shape: {np.shape(decoder_input)}')
+        # print(f'decoder_target shape: {np.shape(decoder_target)}')
+        # print("-------------------------")
         return encoder_input, decoder_input, decoder_target
 
     def fit(self, Xtrain, Ytrain, Xtest, Ytest, epochs=None, batch_size=None, model_dir_path=None):
@@ -801,7 +870,7 @@ class Seq2SeqGloVeSummarizerV3(object):
         Xtest_inp, Ytest_inp, Ytest_target = self.encode_data(Xtest, Ytest)
         # train_gen = self.generate_batch(Xtrain, Ytrain, batch_size)
         # test_gen = self.generate_batch(Xtest, Ytest, batch_size)
-
+        #
         # train_num_batches = len(Xtrain) // batch_size
         # test_num_batches = len(Xtest) // batch_size
 
@@ -809,10 +878,9 @@ class Seq2SeqGloVeSummarizerV3(object):
                                  verbose=VERBOSE,
                                  validation_data=([Xtest_inp, Ytest_inp], Ytest_target))
         # history = self.model.fit_generator(generator=train_gen, steps_per_epoch=train_num_batches,
-        #                          epochs=epochs,
-        #                          verbose=VERBOSE, validation_data=test_gen, validation_steps=test_num_batches,
-        #                          callbacks=[checkpoint])
-        # callbacks=None)
+        #                                    epochs=epochs,
+        #                                    verbose=VERBOSE, validation_data=test_gen, validation_steps=test_num_batches,
+        #                                    callbacks=[checkpoint])
         # scores = self.model.evaluate([Xtest, Ytest], Ytest, verbose=1)
         self.model.save_weights(weight_file_path)
         return history
